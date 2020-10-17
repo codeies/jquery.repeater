@@ -1,1016 +1,665 @@
-// jquery.repeater version 1.2.1
-// https://github.com/DubFriend/jquery.repeater
-// (MIT) 09-10-2016
-// Brian Detering <BDeterin@gmail.com> (http://www.briandetering.net/)
-(function ($) {
-'use strict';
+<?php
 
-var identity = function (x) {
-    return x;
-};
+/**
+ * include setiings class only for extend;
+ */
 
-var isArray = function (value) {
-    return $.isArray(value);
-};
 
-var isObject = function (value) {
-    return !isArray(value) && (value instanceof Object);
-};
 
-var isNumber = function (value) {
-    return value instanceof Number;
-};
+if (!class_exists('Ap_custom_Metabox')):
+    class Ap_custom_Metabox
+    {
 
-var isFunction = function (value) {
-    return value instanceof Function;
-};
 
-var indexOf = function (object, value) {
-    return $.inArray(value, object);
-};
+        /**
+         * @var meta_fields
+         */
 
-var inArray = function (array, value) {
-    return indexOf(array, value) !== -1;
-};
+        private $set_meta_fields;
 
-var foreach = function (collection, callback) {
-    for(var i in collection) {
-        if(collection.hasOwnProperty(i)) {
-            callback(collection[i], i, collection);
-        }
-    }
-};
 
+        /**
+         * dependacy array store
+         * @var array
+         */
 
-var last = function (array) {
-    return array[array.length - 1];
-};
+        private $dependancy_store = array();
 
-var argumentsToArray = function (args) {
-    return Array.prototype.slice.call(args);
-};
+        private $defaults = array(
 
-var extend = function () {
-    var extended = {};
-    foreach(argumentsToArray(arguments), function (o) {
-        foreach(o, function (val, key) {
-            extended[key] = val;
-        });
-    });
-    return extended;
-};
+            'label' => null,
+            'name' => '',
+            'type' => 'text',
+            'class' => null,
+            'default' => null,
+            'placeholder' => '',
+            'description' => '',
+            'input_option'=>''
 
-var mapToArray = function (collection, callback) {
-    var mapped = [];
-    foreach(collection, function (value, key, coll) {
-        mapped.push(callback(value, key, coll));
-    });
-    return mapped;
-};
-
-var mapToObject = function (collection, callback, keyCallback) {
-    var mapped = {};
-    foreach(collection, function (value, key, coll) {
-        key = keyCallback ? keyCallback(key, value) : key;
-        mapped[key] = callback(value, key, coll);
-    });
-    return mapped;
-};
-
-var map = function (collection, callback, keyCallback) {
-    return isArray(collection) ?
-        mapToArray(collection, callback) :
-        mapToObject(collection, callback, keyCallback);
-};
-
-var pluck = function (arrayOfObjects, key) {
-    return map(arrayOfObjects, function (val) {
-        return val[key];
-    });
-};
-
-var filter = function (collection, callback) {
-    var filtered;
-
-    if(isArray(collection)) {
-        filtered = [];
-        foreach(collection, function (val, key, coll) {
-            if(callback(val, key, coll)) {
-                filtered.push(val);
-            }
-        });
-    }
-    else {
-        filtered = {};
-        foreach(collection, function (val, key, coll) {
-            if(callback(val, key, coll)) {
-                filtered[key] = val;
-            }
-        });
-    }
-
-    return filtered;
-};
-
-var call = function (collection, functionName, args) {
-    return map(collection, function (object, name) {
-        return object[functionName].apply(object, args || []);
-    });
-};
-
-//execute callback immediately and at most one time on the minimumInterval,
-//ignore block attempts
-var throttle = function (minimumInterval, callback) {
-    var timeout = null;
-    return function () {
-        var that = this, args = arguments;
-        if(timeout === null) {
-            timeout = setTimeout(function () {
-                timeout = null;
-            }, minimumInterval);
-            callback.apply(that, args);
-        }
-    };
-};
-
-
-var mixinPubSub = function (object) {
-    object = object || {};
-    var topics = {};
-
-    object.publish = function (topic, data) {
-        foreach(topics[topic], function (callback) {
-            callback(data);
-        });
-    };
-
-    object.subscribe = function (topic, callback) {
-        topics[topic] = topics[topic] || [];
-        topics[topic].push(callback);
-    };
-
-    object.unsubscribe = function (callback) {
-        foreach(topics, function (subscribers) {
-            var index = indexOf(subscribers, callback);
-            if(index !== -1) {
-                subscribers.splice(index, 1);
-            }
-        });
-    };
-
-    return object;
-};
-
-// jquery.input version 0.0.0
-// https://github.com/DubFriend/jquery.input
-// (MIT) 09-04-2014
-// Brian Detering <BDeterin@gmail.com> (http://www.briandetering.net/)
-(function ($) {
-'use strict';
-
-var createBaseInput = function (fig, my) {
-    var self = mixinPubSub(),
-        $self = fig.$;
-
-    self.getType = function () {
-        throw 'implement me (return type. "text", "radio", etc.)';
-    };
-
-    self.$ = function (selector) {
-        return selector ? $self.find(selector) : $self;
-    };
-
-    self.disable = function () {
-        self.$().prop('disabled', true);
-        self.publish('isEnabled', false);
-    };
-
-    self.enable = function () {
-        self.$().prop('disabled', false);
-        self.publish('isEnabled', true);
-    };
-
-    my.equalTo = function (a, b) {
-        return a === b;
-    };
-
-    my.publishChange = (function () {
-        var oldValue;
-        return function (e, domElement) {
-            var newValue = self.get();
-            if(!my.equalTo(newValue, oldValue)) {
-                self.publish('change', { e: e, domElement: domElement });
-            }
-            oldValue = newValue;
-        };
-    }());
-
-    return self;
-};
-
-
-var createInput = function (fig, my) {
-    var self = createBaseInput(fig, my);
-
-    self.get = function () {
-        return self.$().val();
-    };
-
-    self.set = function (newValue) {
-        self.$().val(newValue);
-    };
-
-    self.clear = function () {
-        self.set('');
-    };
-
-    my.buildSetter = function (callback) {
-        return function (newValue) {
-            callback.call(self, newValue);
-        };
-    };
-
-    return self;
-};
-
-var inputEqualToArray = function (a, b) {
-    a = isArray(a) ? a : [a];
-    b = isArray(b) ? b : [b];
-
-    var isEqual = true;
-    if(a.length !== b.length) {
-        isEqual = false;
-    }
-    else {
-        foreach(a, function (value) {
-            if(!inArray(b, value)) {
-                isEqual = false;
-            }
-        });
-    }
-
-    return isEqual;
-};
-
-var createInputButton = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'button';
-    };
-
-    self.$().on('change', function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputCheckbox = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'checkbox';
-    };
-
-    self.get = function () {
-        var values = [];
-        self.$().filter(':checked').each(function () {
-            values.push($(this).val());
-        });
-        return values;
-    };
-
-    self.set = function (newValues) {
-        newValues = isArray(newValues) ? newValues : [newValues];
-
-        self.$().each(function () {
-            $(this).prop('checked', false);
-        });
-
-        foreach(newValues, function (value) {
-            self.$().filter('[value="' + value + '"]')
-                .prop('checked', true);
-        });
-    };
-
-    my.equalTo = inputEqualToArray;
-
-    self.$().change(function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputEmail = function (fig) {
-    var my = {},
-        self = createInputText(fig, my);
-
-    self.getType = function () {
-        return 'email';
-    };
-
-    return self;
-};
-
-var createInputFile = function (fig) {
-    var my = {},
-        self = createBaseInput(fig, my);
-
-    self.getType = function () {
-        return 'file';
-    };
-
-    self.get = function () {
-        return last(self.$().val().split('\\'));
-    };
-
-    self.clear = function () {
-        // http://stackoverflow.com/questions/1043957/clearing-input-type-file-using-jquery
-        this.$().each(function () {
-            $(this).wrap('<form>').closest('form').get(0).reset();
-            $(this).unwrap();
-        });
-    };
-
-    self.$().change(function (e) {
-        my.publishChange(e, this);
-        // self.publish('change', self);
-    });
-
-    return self;
-};
-
-var createInputHidden = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'hidden';
-    };
-
-    self.$().change(function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-var createInputMultipleFile = function (fig) {
-    var my = {},
-        self = createBaseInput(fig, my);
-
-    self.getType = function () {
-        return 'file[multiple]';
-    };
-
-    self.get = function () {
-        // http://stackoverflow.com/questions/14035530/how-to-get-value-of-html-5-multiple-file-upload-variable-using-jquery
-        var fileListObject = self.$().get(0).files || [],
-            names = [], i;
-
-        for(i = 0; i < (fileListObject.length || 0); i += 1) {
-            names.push(fileListObject[i].name);
-        }
-
-        return names;
-    };
-
-    self.clear = function () {
-        // http://stackoverflow.com/questions/1043957/clearing-input-type-file-using-jquery
-        this.$().each(function () {
-            $(this).wrap('<form>').closest('form').get(0).reset();
-            $(this).unwrap();
-        });
-    };
-
-    self.$().change(function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputMultipleSelect = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'select[multiple]';
-    };
-
-    self.get = function () {
-        return self.$().val() || [];
-    };
-
-    self.set = function (newValues) {
-        self.$().val(
-            newValues === '' ? [] : isArray(newValues) ? newValues : [newValues]
         );
-    };
 
-    my.equalTo = inputEqualToArray;
 
-    self.$().change(function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputPassword = function (fig) {
-    var my = {},
-        self = createInputText(fig, my);
-
-    self.getType = function () {
-        return 'password';
-    };
-
-    return self;
-};
-
-var createInputRadio = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'radio';
-    };
-
-    self.get = function () {
-        return self.$().filter(':checked').val() || null;
-    };
-
-    self.set = function (newValue) {
-        if(!newValue) {
-            self.$().each(function () {
-                $(this).prop('checked', false);
-            });
+        public function __construct()
+        {
+            add_action("add_meta_boxes", array($this, "add_custom_meta_box"));
+            add_action("save_post", array($this, "save_custom_meta_box"), 10, 3);
+            add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
         }
-        else {
-            self.$().filter('[value="' + newValue + '"]').prop('checked', true);
-        }
-    };
-
-    self.$().change(function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputRange = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'range';
-    };
-
-    self.$().change(function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputSelect = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'select';
-    };
-
-    self.$().change(function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputText = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'text';
-    };
-
-    self.$().on('change keyup keydown', function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputTextarea = function (fig) {
-    var my = {},
-        self = createInput(fig, my);
-
-    self.getType = function () {
-        return 'textarea';
-    };
-
-    self.$().on('change keyup keydown', function (e) {
-        my.publishChange(e, this);
-    });
-
-    return self;
-};
-
-var createInputURL = function (fig) {
-    var my = {},
-        self = createInputText(fig, my);
-
-    self.getType = function () {
-        return 'url';
-    };
-
-    return self;
-};
-
-var buildFormInputs = function (fig) {
-    var inputs = {},
-        $self = fig.$;
-
-    var constructor = fig.constructorOverride || {
-        button: createInputButton,
-        text: createInputText,
-        url: createInputURL,
-        email: createInputEmail,
-        password: createInputPassword,
-        range: createInputRange,
-        textarea: createInputTextarea,
-        select: createInputSelect,
-        'select[multiple]': createInputMultipleSelect,
-        radio: createInputRadio,
-        checkbox: createInputCheckbox,
-        file: createInputFile,
-        'file[multiple]': createInputMultipleFile,
-        hidden: createInputHidden
-    };
-
-    var addInputsBasic = function (type, selector) {
-        var $input = isObject(selector) ? selector : $self.find(selector);
-
-        $input.each(function () {
-            var name = $(this).attr('name');
-            inputs[name] = constructor[type]({
-                $: $(this)
-            });
-        });
-    };
-
-    var addInputsGroup = function (type, selector) {
-        var names = [],
-            $input = isObject(selector) ? selector : $self.find(selector);
-
-        if(isObject(selector)) {
-            inputs[$input.attr('name')] = constructor[type]({
-                $: $input
-            });
-        }
-        else {
-            // group by name attribute
-            $input.each(function () {
-                if(indexOf(names, $(this).attr('name')) === -1) {
-                    names.push($(this).attr('name'));
-                }
-            });
-
-            foreach(names, function (name) {
-                inputs[name] = constructor[type]({
-                    $: $self.find('input[name="' + name + '"]')
-                });
-            });
-        }
-    };
 
 
-    if($self.is('input, select, textarea')) {
-        if($self.is('input[type="button"], button, input[type="submit"]')) {
-            addInputsBasic('button', $self);
-        }
-        else if($self.is('textarea')) {
-            addInputsBasic('textarea', $self);
-        }
-        else if(
-            $self.is('input[type="text"]') ||
-            $self.is('input') && !$self.attr('type')
-        ) {
-            addInputsBasic('text', $self);
-        }
-        else if($self.is('input[type="password"]')) {
-            addInputsBasic('password', $self);
-        }
-        else if($self.is('input[type="email"]')) {
-            addInputsBasic('email', $self);
-        }
-        else if($self.is('input[type="url"]')) {
-            addInputsBasic('url', $self);
-        }
-        else if($self.is('input[type="range"]')) {
-            addInputsBasic('range', $self);
-        }
-        else if($self.is('select')) {
-            if($self.is('[multiple]')) {
-                addInputsBasic('select[multiple]', $self);
-            }
-            else {
-                addInputsBasic('select', $self);
+        public function __call($method, $args)
+        {
+            if (isset($this->$method)) {
+                $func = $this->$method;
+                return call_user_func_array($func, $args);
             }
         }
-        else if($self.is('input[type="file"]')) {
-            if($self.is('[multiple]')) {
-                addInputsBasic('file[multiple]', $self);
-            }
-            else {
-                addInputsBasic('file', $self);
-            }
+
+        /**
+         * Enqueue scripts and styles
+         */
+        function admin_enqueue_scripts()
+        {
+            wp_enqueue_style('wp-color-picker');
+            wp_enqueue_style('meta_css',plugin_dir_url( __FILE__ ).'/css/ap_custom_meta.css');
+            wp_enqueue_media();
+            wp_enqueue_script('wp-color-picker');
+            wp_enqueue_script('jquery');
+            wp_enqueue_script('dep-js', plugin_dir_url( __FILE__ ).'/js/dep.js', array('jquery'), 1, false);
+            wp_enqueue_script('meta-js', plugin_dir_url( __FILE__ ).'/js/meta.js', array('jquery','dep-js'), 1, false);
+            wp_enqueue_script('repeater-js', plugin_dir_url( __FILE__ ).'/js/jquery.repeater.min.js', array('jquery'), 1, false);
+            wp_localize_script('meta-js', 'dependancy_meta', $this->dependancy_store);
         }
-        else if($self.is('input[type="hidden"]')) {
-            addInputsBasic('hidden', $self);
+
+
+        /**
+         * @param $dependancy
+         * @return $this
+         */
+        function set_dependancy($dependancy)
+        {
+
+            $this->dependancy_store [] = $dependancy;
+
+            return $this;
+
         }
-        else if($self.is('input[type="radio"]')) {
-            addInputsGroup('radio', $self);
+
+
+        /**
+         * @param $fields
+         */
+        public function set_meta_fields($fields)
+        {
+
+            $fields = array_map(function ($e) {
+                return array_merge($this->defaults, $e);
+            }, $fields);
+
+            $this->set_meta_fields = $fields;
+
+
         }
-        else if($self.is('input[type="checkbox"]')) {
-            addInputsGroup('checkbox', $self);
-        }
-        else {
-            //in all other cases default to a "text" input interface.
-            addInputsBasic('text', $self);
-        }
-    }
-    else {
-        addInputsBasic('button', 'input[type="button"], button, input[type="submit"]');
-        addInputsBasic('text', 'input[type="text"]');
-        addInputsBasic('password', 'input[type="password"]');
-        addInputsBasic('email', 'input[type="email"]');
-        addInputsBasic('url', 'input[type="url"]');
-        addInputsBasic('range', 'input[type="range"]');
-        addInputsBasic('textarea', 'textarea');
-        addInputsBasic('select', 'select:not([multiple])');
-        addInputsBasic('select[multiple]', 'select[multiple]');
-        addInputsBasic('file', 'input[type="file"]:not([multiple])');
-        addInputsBasic('file[multiple]', 'input[type="file"][multiple]');
-        addInputsBasic('hidden', 'input[type="hidden"]');
-        addInputsGroup('radio', 'input[type="radio"]');
-        addInputsGroup('checkbox', 'input[type="checkbox"]');
-    }
 
-    return inputs;
-};
 
-$.fn.inputVal = function (newValue) {
-    var $self = $(this);
+        /**
+         * custom metabox add function
+         */
 
-    var inputs = buildFormInputs({ $: $self });
+        function add_custom_meta_box()
+        {
 
-    if($self.is('input, textarea, select')) {
-        if(typeof newValue === 'undefined') {
-            return inputs[$self.attr('name')].get();
-        }
-        else {
-            inputs[$self.attr('name')].set(newValue);
-            return $self;
-        }
-    }
-    else {
-        if(typeof newValue === 'undefined') {
-            return call(inputs, 'get');
-        }
-        else {
-            foreach(newValue, function (value, inputName) {
-                inputs[inputName].set(value);
-            });
-            return $self;
-        }
-    }
-};
+            foreach ($this->set_meta_fields as $field) {
+                $id = $field['id'];
+                $title = $field['label'];
+                $description = $field['description'];
+                $label = $field['label'];
+                $callback = "callback_ap_group";
+                $ap_dependancy_prop = array();
+                $childinput = $field['inputs'];
 
-$.fn.inputOnChange = function (callback) {
-    var $self = $(this);
-    var inputs = buildFormInputs({ $: $self });
-    foreach(inputs, function (input) {
-        input.subscribe('change', function (data) {
-            callback.call(data.domElement, data.e);
-        });
-    });
-    return $self;
-};
+                    foreach ($childinput as $child) {
 
-$.fn.inputDisable = function () {
-    var $self = $(this);
-    call(buildFormInputs({ $: $self }), 'disable');
-    return $self;
-};
+                        if (array_key_exists('dependency', $child)) {
+                            $ap_dependancy_prop['dependency']['name'] = "." .$child['dependency']['name'];
+                            $ap_dependancy_prop['dependency']['value'] = $child['dependency']['value'];
+                            $ap_dependancy_prop['dependency']['target'] = "." . $child['class'];
+                            $ap_dependancy_prop['dependency']['sub'] = (array_key_exists('sub', $child['dependency']))? $child['dependency']['sub']:null;
+                            $this->set_dependancy($ap_dependancy_prop['dependency']);
+                        }
 
-$.fn.inputEnable = function () {
-    var $self = $(this);
-    call(buildFormInputs({ $: $self }), 'enable');
-    return $self;
-};
-
-$.fn.inputClear = function () {
-    var $self = $(this);
-    call(buildFormInputs({ $: $self }), 'clear');
-    return $self;
-};
-
-}(jQuery));
-
-$.fn.repeaterVal = function () {
-    var parse = function (raw) {
-        var parsed = [];
-
-        foreach(raw, function (val, key) {
-            var parsedKey = [];
-            if(key !== "undefined") {
-                parsedKey.push(key.match(/^[^\[]*/)[0]);
-                parsedKey = parsedKey.concat(map(
-                    key.match(/\[[^\]]*\]/g),
-                    function (bracketed) {
-                        return bracketed.replace(/[\[\]]/g, '');
                     }
-                ));
 
-                parsed.push({
-                    val: val,
-                    key: parsedKey
-                });
+                $screen = isset($field['post_options']['post_type']) ? $field['post_options']['post_type'] : "post";
+                $context = isset($field['post_options']['context']) ? $field['post_options']['context'] : 'normal';
+                $priority = isset($field['post_options']['priority']) ? $field['post_options']['priority'] : 'default';
+                $default = $field['default'];
+                $callback_args = array(
+                    'id' => $id,
+                    'label' => $label,
+                    'name' => $id,
+                    'child_inputs' => $childinput,
+                    'description' => $description,
+                );
+                add_meta_box($id, $title, array($this, $callback), $screen, $context, $priority, $callback_args);
+
             }
-        });
 
-        return parsed;
-    };
 
-    var build = function (parsed) {
-        if(
-            parsed.length === 1 &&
-            (parsed[0].key.length === 0 || parsed[0].key.length === 1 && !parsed[0].key[0])
-        ) {
-            return parsed[0].val;
         }
 
-        foreach(parsed, function (p) {
-            p.head = p.key.shift();
-        });
 
-        var grouped = (function () {
-            var grouped = {};
 
-            foreach(parsed, function (p) {
-                if(!grouped[p.head]) {
-                    grouped[p.head] = [];
-                }
-                grouped[p.head].push(p);
-            });
+        /**
+         * @param $arg
+         * @param $value
+         * @return string
+         */
 
-            return grouped;
-        }());
+        function ap_input_text($arg, $value, $object)
+        {
 
-        var built;
-
-        if(/^[0-9]+$/.test(parsed[0].head)) {
-            built = [];
-            foreach(grouped, function (group) {
-                built.push(build(group));
-            });
-        }
-        else {
-            built = {};
-            foreach(grouped, function (group, key) {
-                built[key] = build(group);
-            });
-        }
-
-        return built;
-    };
-
-    return build(parse($(this).inputVal()));
-};
-
-$.fn.repeater = function (fig) {
-    fig = fig || {};
-
-    var setList;
-
-    $(this).each(function () {
-
-        var $self = $(this);
-
-        var show = fig.show || function () {
-            $(this).show();
-        };
-
-        var hide = fig.hide || function (removeElement) {
-            removeElement();
-        };
-
-        var $list = $self.find('[data-repeater-list]').first();
-
-        var $filterNested = function ($items, repeaters) {
-            return $items.filter(function () {
-                return repeaters ?
-                    $(this).closest(
-                        pluck(repeaters, 'selector').join(',')
-                    ).length === 0 : true;
-            });
-        };
-
-        var $items = function () {
-            return $filterNested($list.find('[data-repeater-item]'), fig.repeaters);
-        };
-
-        var $itemTemplate = $list.find('[data-repeater-item]')
-                                 .first().clone().hide();
-
-        var $firstDeleteButton = $filterNested(
-            $filterNested($(this).find('[data-repeater-item]'), fig.repeaters)
-            .first().find('[data-repeater-delete]'),
-            fig.repeaters
-        );
-
-        if(fig.isFirstItemUndeletable && $firstDeleteButton) {
-            $firstDeleteButton.remove();
-        }
-
-        var getGroupName = function () {
-            var groupName = $list.data('repeater-list');
-            return fig.$parent ?
-                fig.$parent.data('item-name') + '[' + groupName + ']' :
-                groupName;
-        };
-
-        var initNested = function ($listItems) {
-            if(fig.repeaters) {
-                $listItems.each(function () {
-                    var $item = $(this);
-                    foreach(fig.repeaters, function (nestedFig) {
-                        $item.find(nestedFig.selector).repeater(extend(
-                            nestedFig, { $parent: $item }
-                        ));
-                    });
-                });
+            if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
             }
-        };
+            return sprintf("<div class='mb-box-class %s'><label for='%s'>%s</label><input type='text' id='%s' name='%s' value='%s' placeholder='%s' ><p class='description'>%s</p></div>", esc_attr($arg['class']), esc_attr($arg['id']), esc_attr($arg['label']), esc_attr($arg['id']), esc_attr($arg['name']), esc_html($value), esc_attr($arg['placeholder']), esc_attr($arg['description']));
 
-        var $foreachRepeaterInItem = function (repeaters, $item, cb) {
-            if(repeaters) {
-                foreach(repeaters, function (nestedFig) {
-                    cb.call($item.find(nestedFig.selector)[0], nestedFig);
-                });
+        }
+
+        /**
+         * @param $arg
+         * @param $value
+         * @param $object
+         * @return string
+         */
+
+        function ap_input_email($arg, $value, $object)
+        {
+            if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
             }
-        };
+            return sprintf("<div class='mb-box-class %s'><label for='%s'>%s</label><input type='email' id='%s' name='%s' value='%s' placeholder='' ><p class='description'>%s</p></div>", esc_attr($arg['class']), esc_attr($arg['id']), esc_attr($arg['label']), esc_attr($arg['id']), esc_attr($arg['name']), esc_html($value), esc_attr($arg['placeholder']), esc_attr($arg['description']));
 
-        var setIndexes = function ($items, groupName, repeaters) {
-            $items.each(function (index) {
-                var $item = $(this);
-                $item.data('item-name', groupName + '[' + index + ']');
-                $filterNested($item.find('[name]'), repeaters)
-                .each(function () {
-                    var $input = $(this);
-                    // match non empty brackets (ex: "[foo]")
-                    var matches = $input.attr('name').match(/\[[^\]]+\]/g);
-
-                    var name = matches ?
-                        // strip "[" and "]" characters
-                        last(matches).replace(/\[|\]/g, '') :
-                        $input.attr('name');
-
-
-                    var newName = groupName + '[' + index + '][' + name + ']' +
-                        ($input.is(':checkbox') || $input.attr('multiple') ? '[]' : '');
-
-                    $input.attr('name', newName);
-
-                    $foreachRepeaterInItem(repeaters, $item, function (nestedFig) {
-                        var $repeater = $(this);
-                        setIndexes(
-                            $filterNested($repeater.find('[data-repeater-item]'), nestedFig.repeaters || []),
-                            groupName + '[' + index + ']' +
-                                        '[' + $repeater.find('[data-repeater-list]').first().data('repeater-list') + ']',
-                            nestedFig.repeaters
-                        );
-                    });
-                });
-            });
-
-            $list.find('input[name][checked]')
-                .removeAttr('checked')
-                .prop('checked', true);
-        };
-
-        setIndexes($items(), getGroupName(), fig.repeaters);
-        initNested($items());
-        if(fig.initEmpty) {
-            $items().remove();
         }
 
-        if(fig.ready) {
-            fig.ready(function () {
-                setIndexes($items(), getGroupName(), fig.repeaters);
-            });
+        /**
+         * @param $arg
+         * @param $value
+         * @return url
+         */
+
+        function ap_input_url($arg, $value, $object)
+        {
+
+            if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
+            }
+
+            return sprintf("<div class='mb-box-class %s'> <label for='%s'>%s</label><input type='text' id='%s'  name='%s' value='%s' placeholder='%s' ><p class='description'>%s</p></div>", esc_attr($arg['class']), esc_attr($arg['id']), esc_attr($arg['label']), esc_attr($arg['id']), esc_attr($arg['name']), esc_url($value), esc_attr($arg['placeholder']), esc_attr($arg['description']));
+
         }
 
-        var appendItem = (function () {
-            var setItemsValues = function ($item, data, repeaters) {
-                if(data || fig.defaultValues) {
-                    var inputNames = {};
-                    $filterNested($item.find('[name]'), repeaters).each(function () {
-                        var key = $(this).attr('name').match(/\[([^\]]*)(\]|\]\[\])$/)[1];
-                        inputNames[key] = $(this).attr('name');
-                    });
+        /**
+         * @param $arg
+         * @param $value
+         * @param $object
+         * @return string
+         */
+        function ap_input_hidden($arg, $value, $object)
+        {
 
-                    $item.inputVal(map(
-                        filter(data || fig.defaultValues, function (val, name) {
-                            return inputNames[name];
-                        }),
-                        identity,
-                        function (name) {
-                            return inputNames[name];
+            return sprintf("<input type='hidden' id='%s' name='%s' value='%s' >", esc_attr($arg['class']), esc_attr(
+                $arg['name']), $value);
+
+        }
+
+        /**
+         * @param $arg
+         * @param $value
+         * @return json
+         */
+
+        function ap_input_gallery($arg, $value, $object)
+        {
+
+            if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
+            }
+            // Get WordPress' media upload URL
+            $upload_link = esc_url(get_upload_iframe_src('image', $object->ID));
+
+            // See if there's a media id already saved as post meta
+            $selected_images_id = $value;
+
+
+            // Get the image src
+            $selected_images_src = wp_get_attachment_image_src($selected_images_id, 'full');
+
+            // For convenience, see if the array is valid
+            $has_image = is_array($selected_images_src);
+            ?>
+            <div class="gallery-image-metabox">
+                <div id="<?php echo $arg['id'] ?>">
+                    <!-- Your image container, which can be manipulated with js -->
+                    <div class="custom-img-container">
+                        <?php if ($has_image) : ?>
+                            <img src="<?php echo $selected_images_src[0] ?>" alt="" style="max-width:100%;"/>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Your add & remove image links -->
+                    <p class="hide-if-no-js">
+                        <a class="upload-custom-img <?php if ($has_image) {
+                            echo 'hidden';
+                        } ?> <?php echo $arg['class'] ?>" id="<?php echo $arg['name']; ?>"
+                           href="<?php echo $upload_link ?>">
+                            <?php _e('Set custom image') ?>
+                        </a>
+                        <a class="delete-custom-img <?php if (!$has_image) {
+                            echo 'hidden';
+                        } ?>"
+                           href="#">
+                            <?php _e('Remove this image') ?>
+                        </a>
+                    </p>
+                    <!-- A hidden input to set and post the chosen image id -->
+                    <label for="<?php echo esc_attr($arg['id']); ?>"><?php esc_html_e($arg['label']) ?></label>
+                    <input class="custom-img-id" id="<?php echo esc_attr($arg['id']); ?>"
+                           name="<?php echo esc_attr($arg['name']); ?>" type="hidden"
+                           value="<?php echo esc_attr($selected_images_id); ?>"/>
+                </div>
+            </div><!--end of gallery image meta box-->
+            <?php
+
+        }
+
+        /**
+         * @param $arg
+         * @param $value
+         * @param $object
+         * @return color hexcode
+         */
+
+
+        function ap_input_color($arg, $value, $object)
+        {
+            if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
+            }
+            return sprintf("<div class='mb-box-class %s'><label for='%s'>%s</label> <div class='color-metabox'><input type='color' id='%s' class='widefat' name='%s' value='%s' ><p class='description'>%s</p></div></div>", esc_attr($arg['class']), esc_attr($arg['id']), esc_attr($arg['label']), esc_attr($arg['id']), esc_attr($arg['name']), esc_url($value), esc_attr($arg['description']));
+
+        }
+
+
+        function ap_input_textarea($arg, $value, $object)
+        {
+            if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
+            }
+
+            return sprintf("<div class='mb-box-class %s'><label for='%s'>%s</label><textarea id='%s' style='margin-top: 12px; margin-bottom: 0px; height: 60px;' rows='1' cols='40' type='text' class='widefat' name='%s' placeholder='%s'>%s</textarea><p class='description'>%s</p></div>", esc_attr($arg['class']), esc_attr($arg['id']), esc_attr($arg['label']), esc_attr($arg['id']), esc_attr(
+                $arg['name']), esc_attr($arg['placeholder']), esc_html($value), esc_attr($arg['description']));
+        }        
+
+        function ap_input_wysiwyg($arg, $value, $object)
+        {
+            if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
+            }
+          //  print_r($arg['id']);
+         /*   if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
+            }
+            ob_start();
+            $id = rand(999,99999);//$arg['id'];
+            wp_editor( htmlspecialchars_decode($value), 'content_dec'.$id, array("media_buttons" => false ,'textarea_name' => $arg['name'],'editor_height' => 150) );
+         // $id = base64_encode(random_bytes(10));
+           //  wp_editor(htmlspecialchars_decode($value), 'editsometxt', array('textarea_name'=>'edit_txt','media_buttons'=>true,'tinymce'=>true,'textarea_rows'=>10,'wpautop'=>false));
+
+            $editor_contents = ob_get_clean();
+            return sprintf ("<div class='mb-box-class %s'><label for='%s'>%s</label><p></p>".$editor_contents."</div>",esc_attr($arg['class']), esc_attr($arg['id']), esc_attr($arg['label']));*/
+        $id = rand(999,99999);//$arg['id'];
+        return sprintf("<div class='mb-box-class %s'><label for='%s'>%s</label><textarea id='%s' style='margin-top: 12px; margin-bottom: 0px; height: 60px;' rows='1' cols='40' type='text' class='widefat fpbg_tinymce' name='%s' placeholder='%s'>%s</textarea><p class='description'>%s</p></div>", esc_attr($arg['class']), esc_attr($arg['id']), esc_attr($arg['label']), esc_attr('fpbg_wysiwyg_'.$id), esc_attr(
+                $arg['name']), esc_attr($arg['placeholder']), esc_html($value), esc_attr($arg['description']));
+        }
+
+        /**
+         * @param $arg
+         * @param $value
+         * @param $object
+         */
+
+        function ap_input_radio($arg, $value, $object)
+        {
+
+            $options = $options = $arg['input_option'];;
+            $checked = '';
+            $i = 0;
+            ?>
+            <div class='mb-box-class <?php echo $arg['class'] ?>'>
+                <label><?php echo esc_html($arg['label']); ?></label>
+                <div class="radio-container">
+                <?php
+                foreach ($options as $key => $option):
+                    $i++;
+
+                    if ($i == 1 && $value == null) {
+                        $checked = "checked";
+                    } else if ($key == $value) {
+                        $checked = "checked";
+                    } else {
+                        $checked = '';
+                    }
+                    ?>
+
+
+                    <input type="radio" id="<?php esc_html_e(ucfirst($option)) ?>"
+                           name="<?php echo esc_html($arg['name']); ?>"
+                           value="<?php esc_html_e($key) ?>" <?php echo esc_html($checked); ?>>
+                    <label class="radio-label" for="<?php esc_html_e(ucfirst($option)) ?>"><?php esc_html_e(ucfirst($option)) ?></label>
+                    <br>
+                <?php endforeach; ?>
+                </div>
+                <p class="description"><?php echo esc_attr($arg['description']) ?></p>
+            </div>
+            <?php
+
+        }
+        /**
+         * @param $arg
+         * @param $value
+         * @param $object
+         */
+
+        function ap_input_select($arg, $value, $object)
+        {
+           // print_r($arg);
+            $options = $arg['input_option'];
+            if (!array_key_exists('id', $arg)) {
+                $arg['id'] = $arg['name'];
+            }
+            ?>
+            <div class='mb-box-class <?php echo $arg['class'] ?>'>
+                <label for="<?php echo esc_html($arg['id']); ?>"><?php echo esc_html($arg['label']); ?></label>
+
+                <select id="<?php echo esc_html($arg['id']); ?>"
+                        name="<?php echo esc_html($arg['name']); ?>">
+                    <?php
+                    foreach ($options as $key => $option):
+                        $ap_selected = '';
+                        if ($key == $value) {
+                            $ap_selected = 'selected';
                         }
-                    ));
-                }
+                        ?>
+
+                        <option <?php echo esc_attr($ap_selected); ?>
+                            value="<?php esc_html_e($key) ?>"><?php esc_html_e(ucfirst($option)) ?></option>
+
+                    <?php endforeach; ?>
+                </select>
+                <p class="description"><?php echo esc_attr($arg['description']) ?></p>
+            </div>
+            <?php
+
+        }
+
+        /**
+         * @param $object
+         * @param $ap_value
+         */
+        function callback_ap_group($object, $ap_value)
+        {
+            $arguments = $ap_value['args'];
+            $inputs = $arguments['child_inputs'];
+            $value = get_post_meta($object->ID, $arguments['name'], true);
+            wp_nonce_field(basename(__FILE__), 'ap-' . $arguments['name']);
+            $input_args = array();
+            ?>
+
+            <div class="ap-meta-fields">
+                <?php
+                foreach ($inputs as $input):
 
 
-                $foreachRepeaterInItem(repeaters, $item, function (nestedFig) {
-                    var $repeater = $(this);
-                    $filterNested(
-                        $repeater.find('[data-repeater-item]'),
-                        nestedFig.repeaters
-                    )
-                    .each(function () {
-                        var fieldName = $repeater.find('[data-repeater-list]').data('repeater-list');
-                        if(data && data[fieldName]) {
-                            var $template = $(this).clone();
-                            $repeater.find('[data-repeater-item]').remove();
-                            foreach(data[fieldName], function (data) {
-                                var $item = $template.clone();
-                                setItemsValues(
-                                    $item,
-                                    data,
-                                    nestedFig.repeaters || []
+                    $input = array_merge($this->defaults, $input);
+                    $input['class'] = (!empty($input['class'])) ? $input['class'] : $arguments['name'] . "_" . $input['name'];
+                    $input_args['name'] = $arguments['name'] . "[" . $input['name'] . "]";
+                    $input_args['type'] = ($input['type'] != 'repeater') ? $input['type'] : 'hidden';
+                    $input_callback = "ap_input_" . $input_args['type'];
+
+                    if (array_key_exists('value', $input)) {
+                        $input_args['value'] = $input['value'];
+                    }
+                    $input_args['id'] = $arguments['name'] . "[" . $input['name'] . "]";
+                    $input_args['class'] = (array_key_exists('class', $input)) ? $input['class'] : $input['name'];
+                    $input_args['label'] = $input['label'];
+                    $input_args['placeholder'] = $input['placeholder'];
+                    $input_args['description'] = $input['description'];
+                    $input_args['input_option'] = $input['input_option'];
+
+
+                    if (gettype($value) == "array") {
+                        if (array_key_exists($input['name'], $value)) {
+                            $input_value = $value[$input['name']];
+                        }
+                    }else{
+                        $input_value =  $input['default'];
+                    }
+
+                    ?>
+                    <div class="ap-group-child <?php echo esc_attr($input['class']) ?>">
+                        <?php
+
+                        echo $this->$input_callback($input_args, $input_value, $object);
+                        if ($input['type'] == 'repeater') {
+                            $input_repeater_childs = $input['child_inputs'];
+                            $this->repeater_field_support($input_value, $input_repeater_childs, $input['class'], $input['label']);
+
+                        }
+                        ?>
+                        <!-- Display Div-->
+                        <div class="ap_display_div <?php echo esc_attr($input['class']) ?>">
+
+                            <?php
+
+                            do_action('ap_display_function_' . $input['name'], $input_value);
+                            ?>
+                        </div>
+                    </div>
+                    <?php
+
+                endforeach;
+                ?>
+            </div>
+            <?php
+
+        }
+
+        /**
+         * @param $value
+         * @param $field_name
+         */
+
+        function repeater_field_support($value, $object, $parent_field_name,$parent_label='')
+        {
+            $repeatr_default = array();
+            ?>
+
+            <h3 class="parent_label"><?php echo esc_html($parent_label); ?></h3>
+            <div class="ap-meta-repeater" data-value-field= <?php echo esc_attr($parent_field_name); ?>>
+
+                <?php
+                if (empty($value)):
+                    ?>
+                    <div data-repeater-list="<?php echo esc_attr($parent_field_name) . '_parent'; ?>">
+                        <div data-repeater-item class="repeater-segment">
+                            <?php foreach ($object as $field_name): ?>
+
+                                <?php
+
+                                $field_name = array_merge($this->defaults, $field_name);
+                                $input_repeat_args = array(
+                                    'name' => $field_name['name']
                                 );
-                                $repeater.find('[data-repeater-list]').append($item);
-                            });
-                        }
-                        else {
-                            setItemsValues(
-                                $(this),
-                                nestedFig.defaultValues,
-                                nestedFig.repeaters || []
-                            );
-                        }
-                    });
-                });
+                                if ($field_name['default'] !== null) {
+                                    $repeatr_default[$field_name['name']] = $field_name['default'];
+                                }
 
-            };
+                                $input_repeat_args['label'] = $field_name['label'];
+                                $input_repeat_args['type'] = $field_name['type'];
+                                $input_repeat_args['description'] = $field_name['description'];
+                                $input_repeat_args['placeholder'] = $field_name['placeholder'];
+                                $input_repeat_args['id'] = $field_name['name'] . '[0]';
+                                $input_repeat_args['input_option'] = $field_name['input_option'];
+                                $input_callback = "ap_input_" . $input_repeat_args['type'];
+                                if (array_key_exists('value', $field_name)) {
+                                    $input_repeat_args['value'] = $field_name['value'];
+                                }
+                               // print_r($input_repeat_args);
+                               // die();
+                                $input_repeat_args['class'] = (array_key_exists('class', $field_name)) ? $field_name['class'] : $field_name['name'];
 
-            return function ($item, data) {
-                $list.append($item);
-                setIndexes($items(), getGroupName(), fig.repeaters);
-                $item.find('[name]').each(function () {
-                    $(this).inputClear();
-                });
-                setItemsValues($item, data || fig.defaultValues, fig.repeaters);
-            };
-        }());
+                                ?>
 
-        var addItem = function (data) {
-            var $item = $itemTemplate.clone();
-            appendItem($item, data);
-            if(fig.repeaters) {
-                initNested($item);
+                                <?php echo $this->$input_callback($input_repeat_args, $field_name['default'], array()); ?>
+                            <?php endforeach; ?>
+
+                            <input class="repeater-delete-button" data-repeater-delete type="button" value="Delete"/>
+                        </div>
+                    </div>
+                    <input class="repeater-add-button" data-repeater-create type="button" value="Add"
+                           data-defaut-value='<?php echo json_encode($repeatr_default); ?>'/>
+                    <?php
+                else:
+                    $encoded_val = json_decode($value, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE);
+
+                    $encoded_vals = $encoded_val [$parent_field_name . '_parent'];
+
+                    $repeat_inc = 0;
+                    ?>
+                    <div data-repeater-list="<?php echo esc_attr($parent_field_name) . '_parent'; ?>">
+
+                        <?php
+
+                        foreach ($encoded_vals as $name => $get_value):
+
+
+                            ?>
+                            <div data-repeater-item  class="repeater-segment">
+                                <?php foreach ($object as $field_name): ?>
+
+
+                                    <?php
+
+                                    $field_name = array_merge($this->defaults, $field_name);
+                                    $input_repeat_args = array(
+                                        'name' => $field_name['name']
+                                    );
+
+                                    if ($field_name['default'] !== null) {
+                                        $repeatr_default[$field_name['name']] = $field_name['default'];
+                                    }
+
+
+                                    $input_repeat_args['type'] = $field_name['type'];
+                                    $input_repeat_args['description'] = $field_name['description'];
+                                    $input_repeat_args['placeholder'] = $field_name['placeholder'];
+                                    $input_repeat_args['id'] = $field_name['name'] . '[' . $repeat_inc . ']';
+                                    $input_repeat_args['label'] = $field_name['label'];
+                                    $input_repeat_args['input_option'] = $field_name['input_option'];
+                                    $input_callback = "ap_input_" . $input_repeat_args['type'];
+                                    if (array_key_exists('value', $field_name)) {
+                                        $input_repeat_args['value'] = $field_name['value'];
+                                    }
+
+                                    $input_repeat_args['class'] = (array_key_exists('class', $field_name)) ? $field_name['class'] : $field_name['name'];
+                                    ?>
+
+                                    <?php echo $this->$input_callback($input_repeat_args, $get_value[$field_name['name']], array()); ?>
+
+                                <?php endforeach; ?>
+                                <input class="repeater-delete-button" data-repeater-delete type="button" value="Delete"/>
+
+                            </div>
+                            <?php
+
+                            $repeat_inc++;
+
+                        endforeach;
+                        ?>
+
+
+                    </div>
+
+                    <input class="repeater-add-button" data-repeater-create type="button" value="Add"
+                           data-defaut-value='<?php echo json_encode($repeatr_default); ?>'/>
+
+
+                <?php endif; ?>
+
+
+            </div>
+            <?php
+
+        }
+
+
+        /**
+         * @param $post_id
+         * @param $post
+         * @param $update
+         * @return mixed
+         */
+        function save_custom_meta_box($post_id, $post, $update)
+        {   
+          
+           // error_log(print_r($_POST,true));
+            foreach ($this->set_meta_fields as $field) {
+
+                $meta_post_type = array_key_exists('post_type', (array)$field['post_options']) ? $field['post_options']['post_type'] : 'post';
+
+
+                if ($post->post_type !== $meta_post_type)
+                    continue;
+
+                if (!isset($_POST[$field['id']]) || !wp_verify_nonce($_POST["ap-" . "$field[id]"], basename(__FILE__)))
+                    return $post_id;
+
+
+                if (!current_user_can("edit_post", $post_id))
+                    return $post_id;
+
+
+                if (defined("DOING_AUTOSAVE") && DOING_AUTOSAVE)
+                    return $post_id;
+
+             //   error_log(print_r($field,true));
+
+                $meta_box_text_value = "";
+                /*save video meta box*/
+                if (isset($_POST[$field['id']])) {
+                    $meta_box_text_value = $_POST[$field['id']];
+                }
+
+                if(isset($_POST['codeies_fpbd_options_codeies_fpdb_sections_parent'])){
+                     $final = array();
+                     $final['codeies_fpdb_sections'] = json_encode(array('codeies_fpbd_options_codeies_fpdb_sections_parent'=>$_POST['codeies_fpbd_options_codeies_fpdb_sections_parent']), JSON_UNESCAPED_UNICODE);
+
+                    $meta_box_text_value =  $final;
+
+                }
+               // error_log(print_r($meta_box_text_value,true));
+                update_post_meta($post_id, $field['id'], $meta_box_text_value);
+
+
             }
-            show.call($item.get(0));
-        };
 
-        setList = function (rows) {
-            $items().remove();
-            foreach(rows, addItem);
-        };
 
-        $filterNested($self.find('[data-repeater-create]'), fig.repeaters).click(function () {
-            addItem();
-        });
+            /*end*/
+        }
 
-        $list.on('click', '[data-repeater-delete]', function () {
-            var self = $(this).closest('[data-repeater-item]').get(0);
-            hide.call(self, function () {
-                $(self).remove();
-                setIndexes($items(), getGroupName(), fig.repeaters);
-            });
-        });
-    });
 
-    this.setList = setList;
+    }
+endif;
 
-    return this;
-};
 
-}(jQuery));
